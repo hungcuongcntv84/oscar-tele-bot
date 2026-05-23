@@ -1,2 +1,3 @@
 python-telegram-bot
-anthropic
+model="claude-3-haiku"
+flask
