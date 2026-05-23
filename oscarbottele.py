@@ -27,7 +27,7 @@ async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
         summary = "\n".join(recent_messages)
         try:
             response = client.messages.create(
-                model="claude-3-haiku-20240307",
+                model="claude-3-haiku",
                 max_tokens=1000,
                 messages=[{"role": "user", "content": f"Tổng hợp các vấn đề (issues) từ các tin nhắn sau: {summary}. Nếu không có issue, hãy báo 'Không có gì đáng lưu ý'"}]
             )
