@@ -17,7 +17,7 @@ async def analyze_and_report(update: Update, context: ContextTypes.DEFAULT_TYPE)
     
     # Gửi qua Claude để phân tích (Ví dụ tư duy ConteXtive)
     response = client.messages.create(
-        model="model="claude-3-haiku",
+        model="claude-3-haiku",
         max_tokens=1000,
         messages=[{"role": "user", "content": f"Phân tích chiến lược tin nhắn này trong {chat_title}: {user_text}"}]
     )
