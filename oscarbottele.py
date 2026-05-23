@@ -32,10 +32,10 @@ if __name__ == '__main__':
         print("Bot đang chạy...")
         app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
         app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), analyze_and_report))
-# Tạo web server giả để Render không tắt bot
-app_web = Flask(__name__)
-@app_web.route('/')
-def index(): return 'Bot is running!'
-def run_web(): app_web.run(host='0.0.0.0', port=10000)
-threading.Thread(target=run_web).start()
+	# Tạo web server giả để Render không tắt bot
+	app_web = Flask(__name__)
+	@app_web.route('/')
+	def index(): return 'Bot is running!'
+	def run_web(): app_web.run(host='0.0.0.0', port=10000)
+	threading.Thread(target=run_web).start()
         app.run_polling(drop_pending_updates=True)
