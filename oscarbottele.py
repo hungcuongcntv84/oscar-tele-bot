@@ -56,4 +56,4 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("baocao", hourly_report))
     app.add_error_handler(error_handler)
     
-    app.run_polling(drop_pending_updates=True)
+    app_web.run(host='0.0.0.0', port=10000)
