@@ -51,4 +51,4 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("baocao", hourly_report))
     
     # 3. Chạy bot
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(drop_pending_updates=True, allowed_updates=[])
