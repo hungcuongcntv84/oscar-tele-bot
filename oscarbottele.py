@@ -15,6 +15,9 @@ async def analyze_and_report(update, context):
     if update.message and update.message.text:
         msg = f"{update.effective_user.first_name}: {update.message.text}"
         recent_messages.append(msg)
+async def error_handler(update, context):
+    # Log lỗi ra để biết, hoặc đơn giản là pass để im lặng
+    pass
 
 # Dùng *args để nhận bất kỳ số lượng đối số nào từ JobQueue hoặc Command
 async def hourly_report(*args):
@@ -51,5 +54,6 @@ if __name__ == '__main__':
     app.job_queue.run_repeating(hourly_report, interval=3600, first=60)
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), analyze_and_report))
     app.add_handler(CommandHandler("baocao", hourly_report))
+    app.add_error_handler(error_handler)
     
     app.run_polling(drop_pending_updates=True)
