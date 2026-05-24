@@ -48,12 +48,12 @@ def index(): return 'Bot is running fine!', 200
 def run_web(): app_web.run(host='0.0.0.0', port=10000)
 
 if __name__ == '__main__':
-    threading.Thread(target=run_web).start()
+    threading.Thread(target=run_web, daemon=True).start()
     app = Application.builder().token(TELEGRAM_TOKEN).build()
     
-    app.job_queue.run_repeating(hourly_report, interval=3600, first=60)
+    app.job_queue.run_repeating(job_hourly_report, interval=3600, first=60)
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), analyze_and_report))
-    app.add_handler(CommandHandler("baocao", hourly_report))
+    app.add_handler(CommandHandler("baocao", command_baocao))
     app.add_error_handler(error_handler)
     
     app.run_polling(drop_pending_updates=True)
