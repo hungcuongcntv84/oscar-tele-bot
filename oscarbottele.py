@@ -43,7 +43,7 @@ async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
 # Web server cho Render (Để bot luôn sống)
 app_web = Flask(__name__)
 @app_web.route('/')
-def index(): return 'Bot is running!'
+def index(): return 'Bot is running fine!', 200
 def run_web(): app_web.run(host='0.0.0.0', port=10000)
 
 if __name__ == '__main__':
