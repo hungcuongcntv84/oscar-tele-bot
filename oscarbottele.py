@@ -37,8 +37,9 @@ async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
 
 # Web Server đơn giản
 app_web = Flask(__name__)
-@app_web.route('/')
-def index(): return 'Bot is running fine!', 200
+@app_web.route('/', methods=['GET', 'POST'])
+def index():
+    return 'Bot is alive', 200
 
 if __name__ == '__main__':
     # 1. Chạy Flask trong luồng phụ
