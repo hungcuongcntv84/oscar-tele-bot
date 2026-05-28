@@ -36,10 +36,9 @@ async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Báo cáo:\n{msg}")
 
 # Web Server đơn giản
-app_web = Flask(__name__)
-@app_web.route('/', methods=['GET', 'POST'])
+@app_web.route('/', methods=['GET', 'POST', 'HEAD'])
 def index():
-    return 'Bot is alive', 200
+    return 'Bot is active', 200
 
 if __name__ == '__main__':
     # 1. Chạy Flask trong luồng phụ
