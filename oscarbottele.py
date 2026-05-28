@@ -1,8 +1,16 @@
 import os
 import threading
-from flask import Flask
+from flask import Flask, request
 from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
 import anthropic
+
+# Khởi tạo app_web NGAY TẠI ĐÂY
+app_web = Flask(__name__)
+
+# Định nghĩa các route sau khi app_web đã tồn tại
+@app_web.route('/', methods=['GET', 'POST', 'HEAD'])
+def index():
+    return 'Bot is active', 200
 
 # Cấu hình
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
@@ -34,11 +42,6 @@ async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
         recent_messages.clear()
     if CHAT_ID:
         await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Báo cáo:\n{msg}")
-
-# Web Server đơn giản
-@app_web.route('/', methods=['GET', 'POST', 'HEAD'])
-def index():
-    return 'Bot is active', 200
 
 if __name__ == '__main__':
     # 1. Chạy Flask trong luồng phụ
