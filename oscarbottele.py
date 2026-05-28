@@ -8,9 +8,10 @@ import anthropic
 app_web = Flask(__name__)
 
 # Định nghĩa các route sau khi app_web đã tồn tại
-@app_web.route('/', methods=['GET', 'POST', 'HEAD'])
-def index():
-    return 'Bot is active', 200
+@app_web.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
+@app_web.route('/<path:path>', methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
+def index(path):
+    return 'Bot is alive', 200
 
 # Cấu hình
 TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
