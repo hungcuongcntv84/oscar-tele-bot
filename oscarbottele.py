@@ -1,58 +1,68 @@
-import os
-import threading
-from flask import Flask, request
-from telegram.ext import Application, MessageHandler, filters, ContextTypes, CommandHandler
-import anthropic
-
-# Khởi tạo app_web NGAY TẠI ĐÂY
-app_web = Flask(__name__)
-
-# Định nghĩa các route sau khi app_web đã tồn tại
-@app_web.route('/', defaults={'path': ''}, methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
-@app_web.route('/<path:path>', methods=['GET', 'POST', 'HEAD', 'OPTIONS'])
-def index(path):
-    return 'Bot is alive', 200
-
-# Cấu hình
-TELEGRAM_TOKEN = os.environ.get('TELEGRAM_TOKEN')
-ANTHROPIC_API_KEY = os.environ.get('ANTHROPIC_API_KEY')
-CHAT_ID = os.environ.get('CHAT_ID')
-
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-recent_messages = []
-
-# Logic xử lý
-async def analyze_and_report(update, context):
-    if update.message and update.message.text:
-        msg = f"{update.effective_user.first_name}: {update.message.text}"
-        recent_messages.append(msg)
-
-async def hourly_report(context: ContextTypes.DEFAULT_TYPE):
-    msg = "Không có gì đáng lưu ý trong tiếng vừa qua."
-    if recent_messages:
-        summary = "\n".join(recent_messages)
-        try:
-            response = client.messages.create(
-                model="claude-opus-4-6",
-                max_tokens=1000,
-                messages=[{"role": "user", "content": f"Tổng hợp issues: {summary}"}]
-            )
-            msg = response.content[0].text
-        except Exception:
-            msg = "Lỗi phân tích."
-        recent_messages.clear()
-    if CHAT_ID:
-        await context.bot.send_message(chat_id=CHAT_ID, text=f"📊 Báo cáo:\n{msg}")
-
-if __name__ == '__main__':
-    # 1. Chạy Flask trong luồng phụ
-    threading.Thread(target=lambda: app_web.run(host='0.0.0.0', port=10000), daemon=True).start()
-    
-    # 2. Khởi tạo bot
-    app = Application.builder().token(TELEGRAM_TOKEN).build()
-    app.job_queue.run_repeating(hourly_report, interval=3600, first=60)
-    app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), analyze_and_report))
-    app.add_handler(CommandHandler("baocao", hourly_report))
-    
-    # 3. Chạy bot
-    app.run_polling(drop_pending_updates=True, allowed_updates=[])
+"""Telegram webhook receiver. No long-running polling or local database."""
+import os, logging, threading, requests, time
+from datetime import datetime, timezone
+from flask import Flask, request, abort
+from storage import db_request
+from reporting import generate_report
+logging.basicConfig(level=logging.INFO)
+app_web=Flask(__name__)
+TOKEN=os.environ["TELEGRAM_TOKEN"]
+SECRET=os.environ["TELEGRAM_WEBHOOK_SECRET"]
+ADMINS={int(s.strip()) for s in os.environ["ADMIN_USER_IDS"].split(",") if s.strip()}
+if not ADMINS: raise RuntimeError("ADMIN_USER_IDS required")
+def telegram(method,payload):
+ r=requests.post(f"https://api.telegram.org/bot{TOKEN}/{method}",json=payload,timeout=20)
+ r.raise_for_status()
+ return r.json()
+@app_web.get("/")
+def health(): return "Oscar bot webhook alive",200
+@app_web.post("/telegram/webhook")
+def webhook():
+ if request.headers.get("X-Telegram-Bot-Api-Secret-Token")!=SECRET: abort(403)
+ update=request.get_json(silent=True) or {}
+ member=update.get("my_chat_member")
+ if member:
+  chat=member.get("chat",{})
+  if chat.get("type") in ("group","supergroup"):
+   status=member.get("new_chat_member",{}).get("status","")
+   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":status not in ("left","kicked")},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
+ msg=update.get("message") or update.get("edited_message")
+ if not msg:return "ok",200
+ chat=msg.get("chat",{})
+ body=msg.get("text") or msg.get("caption")
+ if chat.get("type") in ("group","supergroup") and body:
+  db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
+  sender=msg.get("from",{})
+  db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/baocao":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private":
+   parts=body.split()
+   duration=parts[1] if len(parts)>1 else "1h"
+   if duration not in ("1h","24h","7d"):
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /baocao, /baocao 24h, /baocao 7d"})
+    return "ok",200
+   telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang phân tích báo cáo..."})
+   threading.Thread(target=manual_report,args=(duration,),daemon=True).start()
+ return "ok",200
+def manual_report(duration):
+ try: generate_report(duration,scheduled=False)
+ except Exception:
+  logging.exception("Manual report failed")
+  try: telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Oscar GPT: báo cáo theo yêu cầu thất bại. Kiểm tra Render Logs."})
+  except Exception: logging.exception("Failed to notify admin")
+def register_webhook():
+ url=os.environ.get("WEBHOOK_PUBLIC_URL","https://oscar-tele-bot.onrender.com").rstrip("/")+"/telegram/webhook"
+ for attempt in range(5):
+  try:
+   result=telegram("setWebhook",{"url":url,"secret_token":SECRET,"allowed_updates":["message","edited_message","my_chat_member"],"drop_pending_updates":False})
+   if not result.get("ok"):raise RuntimeError(str(result))
+   logging.info("Telegram webhook registered")
+   return
+  except Exception:
+   logging.exception("Webhook registration attempt %s failed",attempt+1)
+   time.sleep(min(2**attempt,20))
+ logging.error("Webhook registration failed; inspect logs and re-deploy")
+if __name__=="__main__":
+ threading.Thread(target=register_webhook,daemon=True).start()
+ app_web.run(host="0.0.0.0",port=int(os.getenv("PORT","10000")))
