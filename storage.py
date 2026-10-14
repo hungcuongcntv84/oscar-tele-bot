@@ -1,6 +1,10 @@
 """Supabase PostgREST client using service-role key, server-side only."""
 import os,requests
-URL=os.environ["SUPABASE_URL"].rstrip("/")+"/rest/v1/"
+URL=os.environ["SUPABASE_URL"].rstrip("/")
+if URL.endswith("/rest/v1"):
+ URL += "/"
+else:
+ URL += "/rest/v1/"
 KEY=os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 def db_request(table,method="GET",payload=None,params=None,prefer=None):
  headers={"apikey":KEY,"Authorization":"Bearer "+KEY,"Content-Type":"application/json"}
