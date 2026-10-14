@@ -1,6 +1,6 @@
 """Telegram webhook receiver. No long-running polling or local database."""
 import os, logging, threading, requests, time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from storage import db_request
 from reporting import generate_report
@@ -14,7 +14,7 @@ def telegram(method,payload):
  r=requests.post(f"https://api.telegram.org/bot{TOKEN}/{method}",json=payload,timeout=20)
  r.raise_for_status()
  return r.json()
-@app_web.get("/")
+@app_web.route("/",methods=["GET","HEAD"])
 def health(): return "Oscar bot webhook alive",200
 @app_web.post("/telegram/webhook")
 def webhook():
@@ -51,6 +51,24 @@ def manual_report(duration):
   logging.exception("Manual report failed")
   try: telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Oscar GPT: báo cáo theo yêu cầu thất bại. Kiểm tra Render Logs."})
   except Exception: logging.exception("Failed to notify admin")
+def fallback_scheduler():
+ """Best-effort hourly backup while the Render Free process is awake."""
+ while True:
+  time.sleep(300)
+  try:
+   from storage import db_request
+   rows=db_request("report_state",params={"key":"eq.hourly","select":"value"})
+   if not rows:
+    logging.info("No hourly checkpoint yet; primary GitHub scheduler should initialize it")
+    continue
+   last=datetime.fromisoformat(rows[0]["value"])
+   if last.tzinfo is None: last=last.replace(tzinfo=timezone.utc)
+   if datetime.now(timezone.utc)-last>=timedelta(minutes=70):
+    logging.warning("Hourly report overdue; starting Render fallback")
+    generate_report("1h",scheduled=True)
+  except Exception:
+   logging.exception("Render fallback scheduler error")
+
 def register_webhook():
  url=os.environ.get("WEBHOOK_PUBLIC_URL","https://oscar-tele-bot.onrender.com").rstrip("/")+"/telegram/webhook"
  for attempt in range(5):
@@ -65,4 +83,5 @@ def register_webhook():
  logging.error("Webhook registration failed; inspect logs and re-deploy")
 if __name__=="__main__":
  threading.Thread(target=register_webhook,daemon=True).start()
+ threading.Thread(target=fallback_scheduler,daemon=True).start()
  app_web.run(host="0.0.0.0",port=int(os.getenv("PORT","10000")))
