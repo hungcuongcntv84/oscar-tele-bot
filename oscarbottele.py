@@ -1,5 +1,5 @@
 """Telegram webhook receiver. No long-running polling or local database."""
-import os, logging, threading, requests
+import os, logging, threading, requests, time
 from datetime import datetime, timezone
 from flask import Flask, request, abort
 from storage import db_request
@@ -45,5 +45,18 @@ def webhook():
 def manual_report(duration):
  try: generate_report(duration,scheduled=False)
  except Exception: logging.exception("Manual report failed")
+def register_webhook():
+ url=os.environ.get("WEBHOOK_PUBLIC_URL","https://oscar-tele-bot.onrender.com").rstrip("/")+"/telegram/webhook"
+ for attempt in range(5):
+  try:
+   result=telegram("setWebhook",{"url":url,"secret_token":SECRET,"allowed_updates":["message","edited_message","my_chat_member"],"drop_pending_updates":False})
+   if not result.get("ok"):raise RuntimeError(str(result))
+   logging.info("Telegram webhook registered")
+   return
+  except Exception:
+   logging.exception("Webhook registration attempt %s failed",attempt+1)
+   time.sleep(min(2**attempt,20))
+ logging.error("Webhook registration failed; inspect logs and re-deploy")
 if __name__=="__main__":
+ threading.Thread(target=register_webhook,daemon=True).start()
  app_web.run(host="0.0.0.0",port=int(os.getenv("PORT","10000")))
