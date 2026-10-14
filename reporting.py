@@ -42,6 +42,8 @@ def generate_report(duration="1h",scheduled=False):
  if scheduled:
   rows=db_request("report_state",params={"key":"eq.hourly","select":"value"})
   start=datetime.fromisoformat(rows[0]["value"]) if rows else end-timedelta(hours=1)
+  if start.tzinfo is None: start=start.replace(tzinfo=timezone.utc)
+  if start>end: raise ValueError("Hourly checkpoint is in the future")
  else:start=end-timedelta(hours=hours)
  active=db_request("groups",params={"active":"eq.true","select":"chat_id"})
  ids=[str(g["chat_id"]) for g in active]
