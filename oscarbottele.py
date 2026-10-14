@@ -1,5 +1,5 @@
 """Telegram webhook receiver. No long-running polling or local database."""
-import os, logging, threading, requests, time
+import os, logging, threading, requests, time, secrets
 from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from storage import db_request
@@ -8,6 +8,7 @@ logging.basicConfig(level=logging.INFO)
 app_web=Flask(__name__)
 TOKEN=os.environ["TELEGRAM_TOKEN"]
 SECRET=os.environ["TELEGRAM_WEBHOOK_SECRET"]
+REPORT_LOCK=threading.Lock()
 ADMINS={int(s.strip()) for s in os.environ["ADMIN_USER_IDS"].split(",") if s.strip()}
 if not ADMINS: raise RuntimeError("ADMIN_USER_IDS required")
 def telegram(method,payload):
@@ -51,23 +52,28 @@ def manual_report(duration):
   logging.exception("Manual report failed")
   try: telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Oscar GPT: báo cáo theo yêu cầu thất bại. Kiểm tra Render Logs."})
   except Exception: logging.exception("Failed to notify admin")
-def fallback_scheduler():
- """Best-effort hourly backup while the Render Free process is awake."""
- while True:
-  time.sleep(300)
-  try:
-   from storage import db_request
-   rows=db_request("report_state",params={"key":"eq.hourly","select":"value"})
-   if not rows:
-    logging.info("No hourly checkpoint yet; primary GitHub scheduler should initialize it")
-    continue
+@app_web.post("/cron/hourly")
+def cron_hourly():
+ secret=os.getenv("CRON_SECRET","")
+ supplied=request.headers.get("X-Cron-Secret","")
+ if not secret or not secrets.compare_digest(supplied,secret): abort(403)
+ if not REPORT_LOCK.acquire(blocking=False):
+  return {"status":"busy"},409
+ try:
+  rows=db_request("report_state",params={"key":"eq.hourly","select":"value"})
+  if rows:
    last=datetime.fromisoformat(rows[0]["value"])
    if last.tzinfo is None: last=last.replace(tzinfo=timezone.utc)
-   if datetime.now(timezone.utc)-last>=timedelta(minutes=70):
-    logging.warning("Hourly report overdue; starting Render fallback")
-    generate_report("1h",scheduled=True)
-  except Exception:
-   logging.exception("Render fallback scheduler error")
+   elapsed=(datetime.now(timezone.utc)-last).total_seconds()
+   if elapsed<3300:
+    return {"status":"skipped","reason":"last successful report less than 55 minutes ago"},200
+  generate_report("1h",scheduled=True)
+  return {"status":"sent"},200
+ except Exception:
+  logging.exception("Scheduled cron report failed")
+  return {"status":"error"},500
+ finally:
+  REPORT_LOCK.release()
 
 def register_webhook():
  url=os.environ.get("WEBHOOK_PUBLIC_URL","https://oscar-tele-bot.onrender.com").rstrip("/")+"/telegram/webhook"
@@ -83,5 +89,4 @@ def register_webhook():
  logging.error("Webhook registration failed; inspect logs and re-deploy")
 if __name__=="__main__":
  threading.Thread(target=register_webhook,daemon=True).start()
- threading.Thread(target=fallback_scheduler,daemon=True).start()
  app_web.run(host="0.0.0.0",port=int(os.getenv("PORT","10000")))
