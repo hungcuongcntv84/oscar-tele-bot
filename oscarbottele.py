@@ -34,17 +34,23 @@ def webhook():
   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
   sender=msg.get("from",{})
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
- if body and body.split()[0].split("@")[0]=="/baocao":
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/baocao":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private":
    parts=body.split()
    duration=parts[1] if len(parts)>1 else "1h"
+   if duration not in ("1h","24h","7d"):
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /baocao, /baocao 24h, /baocao 7d"})
+    return "ok",200
    telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang phân tích báo cáo..."})
    threading.Thread(target=manual_report,args=(duration,),daemon=True).start()
  return "ok",200
 def manual_report(duration):
  try: generate_report(duration,scheduled=False)
- except Exception: logging.exception("Manual report failed")
+ except Exception:
+  logging.exception("Manual report failed")
+  try: telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Oscar GPT: báo cáo theo yêu cầu thất bại. Kiểm tra Render Logs."})
+  except Exception: logging.exception("Failed to notify admin")
 def register_webhook():
  url=os.environ.get("WEBHOOK_PUBLIC_URL","https://oscar-tele-bot.onrender.com").rstrip("/")+"/telegram/webhook"
  for attempt in range(5):
