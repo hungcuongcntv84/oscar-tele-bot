@@ -75,6 +75,39 @@ DAILY_PROMPT = """Bạn là Oscar, lập Morning Management Brief lúc 07:00, t�
 5. STRATEGIC SIGNALS & NEXT-DAY WATCHLIST
 Ngắn gọn, tập trung vào ý nghĩa quản trị, không lặp các tin nhắn test hay chuyện phiếm. Nếu không có dữ liệu, ghi rõ không có báo cáo giờ trong ngày."""
 
+MONDAY_WISHES = [
+ "Chúc cả nhà tuần mới nhiều cảm hứng, ý tưởng đến đúng lúc, cà phê luôn đúng gu và những cuộc họp đều đi đến điều hay ho. Bắt đầu thật rực rỡ nhé! 🚀",
+ "Thứ Hai đã ghé cửa! Chúc team mở tuần bằng tinh thần tươi như nắng sớm, đầu óc sắc như brief rõ ràng và nụ cười luôn sẵn có. ☀️",
+ "Tuần mới, trang mới. Mong mỗi người có thêm một điều để háo hức, một ý tưởng để thử và thật nhiều khoảnh khắc đáng nhớ. ✨",
+ "Chúc cả nhà sáng thứ Hai nhẹ nhàng như playlist yêu thích, hứng khởi như vừa nghĩ ra một big idea và vui từ lúc mở laptop. 🎶",
+ "Monday không đáng sợ, chỉ là cuối tuần chưa kịp chào tạm biệt thôi. Chúc team vào guồng thật mượt và giữ mood thật đẹp! 😄",
+ "Đầu tuần xin gửi một chút nắng, một chút may mắn và thật nhiều năng lượng tích cực. Chúc cả nhà làm gì cũng có cảm hứng! 🌻",
+ "Chúc team một tuần ý tưởng bay cao, phối hợp ăn ý và mỗi ngày đều có lý do để tự hào về điều mình tạo ra. 🎈",
+ "Chào thứ Hai! Hãy để sự tò mò dẫn đường, sự sáng tạo mở lối và tinh thần đồng đội làm mọi hành trình thú vị hơn. 🌈",
+ "Tuần mới mở màn rồi! Chúc cả nhà giữ được cái đầu tỉnh táo, trái tim hào hứng và chiếc bụng luôn được ăn ngon. ☕🍜",
+ "Mong tuần này có nhiều câu 'Hay đó!', nhiều tiếng cười bất ngờ và những ý tưởng khiến mọi người cùng muốn bắt tay làm ngay. 💡",
+ "Chúc một thứ Hai nhiều năng lượng như nhạc mở màn sự kiện, nhưng tâm trạng thì thư thái như ngồi cà phê sáng. 🎧",
+ "Một tuần mới đáng yêu bắt đầu từ một lời chào. Chúc cả nhà hôm nay gặp nhiều người dễ thương và nhiều điều thuận lợi! 🌷",
+ "Đầu tuần không cần phép màu, chỉ cần một chút cảm hứng và những đồng đội tuyệt vời. Chúc cả nhà cùng tạo nên điều thú vị! ✨",
+ "Hello Monday! Chúc team luôn giữ được tinh thần dám nghĩ khác, thử điều mới và vui với hành trình sáng tạo của mình. 🚀",
+ "Chúc cả nhà một tuần nhiều niềm vui nho nhỏ: tin nhắn dễ thương, bữa trưa ngon miệng và những cuộc trò chuyện đầy cảm hứng. 🍀",
+ "Thứ Hai là nút play của tuần mới. Chúc playlist tuần này toàn bài hay, năng lượng tốt và thật nhiều khoảnh khắc đáng nhớ. ▶️",
+ "Chúc team tuần mới rộn ràng ý tưởng, nhẹ nhàng tâm trí và có đủ thời gian thưởng thức một ly cà phê thật ngon. ☕",
+ "Mong mỗi ngày trong tuần đều có một bất ngờ tích cực. Còn hôm nay, chúc cả nhà khởi động thật vui và đầy hào hứng! 🌞",
+ "Tuần mới như một trang giấy trắng: cứ mạnh dạn phác thảo, tô thêm màu và để những điều thú vị xuất hiện. 🎨",
+ "Chúc cả nhà mở tuần với tinh thần 'có gì hay ho hôm nay nhỉ?' và khép mỗi ngày bằng một nụ cười hài lòng. 😎",
+ "Thứ Hai xin chào! Chúc team sáng tạo không giới hạn, năng lượng vừa đủ bền và những giờ nghỉ ngơi cũng thật chất lượng. 🌿",
+ "Mong tuần này mang đến những cuộc gặp thú vị, góc nhìn mới và một vài ý tưởng khiến cả team phải bật cười vì quá hay. 💫",
+ "Đầu tuần gửi team một lời chúc: giữ sự háo hức của người mới bắt đầu và sự tự tin của người biết mình đang tạo giá trị. 🌟",
+ "Chúc cả nhà thứ Hai có nắng trong lòng, nhạc trong tai và thật nhiều cảm hứng trong từng cuộc trò chuyện. 🎵",
+ "Tuần mới không cần hoàn hảo ngay từ đầu. Chỉ cần bắt đầu bằng tinh thần vui vẻ và một chút tò mò. Chúc team thật nhiều năng lượng! 🌼",
+ "Chúc cả nhà tuần mới vui như nhận được feedback 'đúng ý rồi', nhưng không cần đợi đến lúc đó mới mỉm cười nhé! 😄",
+ "Monday gọi tên những người thích tạo điều mới mẻ! Chúc team giữ lửa sáng tạo và luôn tìm thấy niềm vui trong những điều nhỏ nhất. 🔥",
+ "Chúc cả nhà một tuần phối hợp thật ăn ý, trò chuyện thật cởi mở và có nhiều khoảnh khắc 'à ha!' đáng nhớ. 💡",
+ "Xin chào tuần mới! Mong những ý tưởng tốt gặp đúng người đồng hành và những nỗ lực mỗi ngày đều được trân trọng. 🤝",
+ "Chúc team một thứ Hai khởi đầu sáng sủa, một tuần đầy trải nghiệm thú vị và thật nhiều câu chuyện hay để kể vào thứ Sáu. 🎉",
+]
+
 def generate_daily_report():
  from zoneinfo import ZoneInfo
  local=ZoneInfo("Asia/Ho_Chi_Minh")
@@ -125,6 +158,9 @@ def generate_daily_report():
   summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Khoảng báo cáo {period} (Asia/Ho_Chi_Minh). Số báo cáo giờ: {len(reports)}. Dữ liệu {'BỊ CẮT NGẮN' if clipped else 'trong kho báo cáo giờ'}:\n"+source,max_output_tokens=3500).output_text
   if clipped:summary="⚠️ Dữ liệu tổng hợp vượt giới hạn, cần kiểm tra bổ sung.\n"+summary
  message=f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\nGửi {today.strftime('%d/%m/%Y')} 07:00 (GMT+7) | Dữ liệu: {start_day.strftime('%d/%m')}–{end_day.strftime('%d/%m/%Y')}\nNguồn: {len(reports)} báo cáo giờ đã lưu\n\n"+summary
+ if today.weekday()==0:
+  greeting=MONDAY_WISHES[(today.toordinal()//7)%len(MONDAY_WISHES)]
+  message="☀️ HELLO MONDAY — NEW WEEK, NEW ENERGY!\n"+greeting+"\n\n"+message
  team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
  if not team_id:
   raise RuntimeError("TEAM_REPORT_CHAT_ID must be configured to deliver the morning brief to the team group")
