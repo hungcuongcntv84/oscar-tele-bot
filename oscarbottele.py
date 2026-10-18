@@ -84,7 +84,7 @@ def cron_daily():
  try:
   from zoneinfo import ZoneInfo
   local=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
-  if local.hour<21:return {"status":"skipped","reason":"Before 21:00 Vietnam time"},200
+  if local.hour<7:return {"status":"skipped","reason":"Before 07:00 Vietnam time"},200
   result=generate_daily_report()
   return {"status":result},200
  except Exception:
