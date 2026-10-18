@@ -3,7 +3,7 @@ import os, logging, threading, requests, time, secrets
 from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from storage import db_request
-from reporting import generate_report, generate_daily_report
+from reporting import generate_report, generate_daily_report, send
 logging.basicConfig(level=logging.INFO)
 app_web=Flask(__name__)
 TOKEN=os.environ["TELEGRAM_TOKEN"]
@@ -74,6 +74,24 @@ def cron_hourly():
   return {"status":"error"},500
  finally:
   REPORT_LOCK.release()
+
+@app_web.post("/cron/test-delivery")
+def cron_test_delivery():
+ secret=os.getenv("CRON_SECRET","")
+ supplied=request.headers.get("X-Cron-Secret","")
+ if not secret or not secrets.compare_digest(supplied,secret):abort(403)
+ team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
+ if not team_id:return {"status":"error","reason":"TEAM_REPORT_CHAT_ID missing"},500
+ message="🧪 OSCAR — TEST DELIVERY\\nĐây là tin nhắn kiểm tra kênh nhận Morning Management Brief. Không phải báo cáo thật.\\nLịch báo cáo 07:00 không thay đổi."
+ results={}
+ for label,recipient in (("team",team_id),("private",os.environ["CHAT_ID"])):
+  try:
+   send(message,chat_id=int(recipient))
+   results[label]="sent"
+  except Exception:
+   logging.exception("Test delivery failed: %s",label)
+   results[label]="failed"
+ return {"status":"sent" if all(v=="sent" for v in results.values()) else "partial_failure","destinations":results},(200 if all(v=="sent" for v in results.values()) else 500)
 
 @app_web.post("/cron/daily")
 def cron_daily():
