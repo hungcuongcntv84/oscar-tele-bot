@@ -24,13 +24,14 @@ CẤU TRÚC BẮT BUỘC:
 5. SIGNALS
 Ưu tiên thông tin có giá trị hành động, tránh diễn giải dài và lặp lại."""
 
-def send(text):
+def send(text,chat_id=None):
+ recipient=CHAT_ID if chat_id is None else int(chat_id)
  while text:
   part=text[:3900]
   if len(text)>3900:
    split=part.rfind("\n")
    if split>500:part=part[:split]
-  r=requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage",json={"chat_id":CHAT_ID,"text":part},timeout=30)
+  r=requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage",json={"chat_id":recipient,"text":part},timeout=30)
   r.raise_for_status()
   text=text[len(part):].lstrip("\n")
 def generate_report(duration="1h",scheduled=False):
@@ -101,7 +102,13 @@ def generate_daily_report():
   if clipped:source=source[:105000]
   summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Ngày {day.isoformat()} (Asia/Ho_Chi_Minh). Số báo cáo giờ: {len(reports)}. Dữ liệu {'BỊ CẮT NGẮN' if clipped else 'trong kho báo cáo giờ'}:\n"+source,max_output_tokens=3500).output_text
   if clipped:summary="⚠️ Dữ liệu tổng hợp vượt giới hạn, cần kiểm tra bổ sung.\n"+summary
- send(f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\\n{day.strftime('%d/%m/%Y')} | Gửi 07:00 (GMT+7) | Tổng hợp ngày hôm trước\\nNguồn: {len(reports)} báo cáo giờ đã lưu\n\n"+summary)
+ message=f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\n{day.strftime('%d/%m/%Y')} | Gửi 07:00 (GMT+7) | Tổng hợp ngày hôm trước\nNguồn: {len(reports)} báo cáo giờ đã lưu\n\n"+summary
+ team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
+ if not team_id:
+  raise RuntimeError("TEAM_REPORT_CHAT_ID must be configured to deliver the morning brief to the team group")
+ # Send team first: if it fails, private delivery is not falsely marked complete.
+ send(message,chat_id=int(team_id))
+ send(message)
  db_request("report_state","POST",{"key":checkpoint,"value":now.isoformat()},params={"on_conflict":"key"},prefer="resolution=merge-duplicates,return=minimal")
  return "sent"
 
