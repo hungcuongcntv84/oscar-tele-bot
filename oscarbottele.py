@@ -3,7 +3,7 @@ import os, logging, threading, requests, time, secrets
 from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from storage import db_request
-from reporting import generate_report
+from reporting import generate_report, generate_daily_report
 logging.basicConfig(level=logging.INFO)
 app_web=Flask(__name__)
 TOKEN=os.environ["TELEGRAM_TOKEN"]
@@ -71,6 +71,24 @@ def cron_hourly():
   return {"status":"sent"},200
  except Exception:
   logging.exception("Scheduled cron report failed")
+  return {"status":"error"},500
+ finally:
+  REPORT_LOCK.release()
+
+@app_web.post("/cron/daily")
+def cron_daily():
+ secret=os.getenv("CRON_SECRET","")
+ supplied=request.headers.get("X-Cron-Secret","")
+ if not secret or not secrets.compare_digest(supplied,secret):abort(403)
+ if not REPORT_LOCK.acquire(blocking=False):return {"status":"busy"},409
+ try:
+  from zoneinfo import ZoneInfo
+  local=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
+  if local.hour<21:return {"status":"skipped","reason":"Before 21:00 Vietnam time"},200
+  result=generate_daily_report()
+  return {"status":result},200
+ except Exception:
+  logging.exception("Daily report failed")
   return {"status":"error"},500
  finally:
   REPORT_LOCK.release()
