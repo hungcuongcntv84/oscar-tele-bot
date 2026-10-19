@@ -108,29 +108,29 @@ MONDAY_WISHES = [
  "Chúc team một thứ Hai khởi đầu sáng sủa, một tuần đầy trải nghiệm thú vị và thật nhiều câu chuyện hay để kể vào thứ Sáu. 🎉",
 ]
 
-def generate_daily_report():
+def generate_daily_report(target_date=None, force=False, deliver_team=True):
+ """Build a dated brief from stored Telegram messages, with hourly reports as context."""
  from zoneinfo import ZoneInfo
  local=ZoneInfo("Asia/Ho_Chi_Minh")
  now=datetime.now(timezone.utc)
- today=now.astimezone(local).date()
+ today=target_date or now.astimezone(local).date()
+ if today>now.astimezone(local).date():
+  raise ValueError("Future report date is not supported")
  end_day=today-timedelta(days=1)
  start_day=today-timedelta(days=3 if today.weekday()==0 else 1)
  period=f"{start_day.isoformat()} đến {end_day.isoformat()}"
  checkpoint="daily:"+today.isoformat()
  done=db_request("report_state",params={"key":"eq."+checkpoint,"select":"value"})
- if done:return "skipped"
+ if done and not force:return "skipped"
  if today.weekday()==6:
+  if not deliver_team:return "Sunday has no management brief"
   wishes=[
    "Chủ Nhật là ngày mà đồng hồ báo thức cũng nên được nghỉ phép. Chúc cả nhà một ngày thật thư thả! ☕🌿",
    "Hôm nay không cần chạy nhanh, chỉ cần tận hưởng chậm. Chúc mọi người Chủ Nhật vui và nhiều năng lượng! 🌞",
    "Một chiếc Chủ Nhật thật nhẹ: ăn món mình thích, gặp người mình thương, ngủ thêm một chút. Chúc cả nhà vui! 🍜✨",
-   "Chủ Nhật xin phép bật chế độ: cà phê ngon, nhạc hay và không vội vàng. Chúc cả nhà một ngày đẹp! 🎶☕",
-   "Chúc cả nhà Chủ Nhật vui như tìm được chỗ đậu xe ngay trước quán ăn yêu thích! 😄🌼",
-   "Ngày đẹp nhất để làm một việc rất quan trọng: tận hưởng ngày nghỉ. Chúc cả nhà Chủ Nhật thật chill! 🌴",
-   "Hôm nay ưu tiên những điều nhỏ xinh: nắng đẹp, đồ ăn ngon và một nụ cười thật tươi. Happy Sunday! 🌻",
-   "Chủ Nhật mà, cho đầu óc đi dạo và tâm trạng đi chơi. Chúc mọi người một ngày thật dễ thương! 🍀"
+   "Chủ Nhật xin phép bật chế độ: cà phê ngon, nhạc hay và không vội vàng. Chúc cả nhà một ngày đẹp! 🎶☕"
   ]
-  message="🌞 OSCAR — SUNDAY VIBES\\n"+today.strftime("%d/%m/%Y")+"\\n\\n"+wishes[(today.toordinal()//7)%len(wishes)]
+  message="🌞 OSCAR — SUNDAY VIBES\n"+today.strftime("%d/%m/%Y")+"\n\n"+wishes[(today.toordinal()//7)%len(wishes)]
   team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
   if not team_id:raise RuntimeError("TEAM_REPORT_CHAT_ID must be configured")
   send(message,chat_id=int(team_id))
@@ -138,33 +138,65 @@ def generate_daily_report():
   db_request("report_state","POST",{"key":checkpoint,"value":now.isoformat()},params={"on_conflict":"key"},prefer="resolution=merge-duplicates,return=minimal")
   return "sent_sunday"
 
- # Hourly reports are archived using UTC end timestamps. Query all and select local day.
- rows=db_request("report_state",params={"key":"like.hourly_report:*","select":"key,value","order":"key.asc","limit":"1000"})
+ # Use the source messages as the source of truth. Hourly summaries cannot substitute
+ # for messages, because cron may be skipped or /baocao may run without archiving.
+ start=datetime.combine(start_day,datetime.min.time(),tzinfo=local).astimezone(timezone.utc)
+ end=datetime.combine(today,datetime.min.time(),tzinfo=local).astimezone(timezone.utc)
+ active=db_request("groups",params={"active":"eq.true","select":"chat_id"})
+ ids=[str(g["chat_id"]) for g in active]
+ messages=[]
+ truncated=False
+ if ids:
+  # Bounded pagination, ordered chronologically and filtered within the period.
+  for offset in range(0,5000,1000):
+   batch=db_request("messages",params={
+    "chat_id":"in.("+",".join(ids)+")",
+    "sent_at":"gte."+start.isoformat(),
+    "and":"(sent_at.lt."+end.isoformat()+")",
+    "select":"chat_id,message_id,title,sender,sent_at,body",
+    "order":"sent_at.asc,message_id.asc",
+    "limit":"1000","offset":str(offset)})
+   messages.extend(batch)
+   if len(batch)<1000:break
+  else:truncated=True
+  if len(messages)>=5000:truncated=True
+ lines=[];used=0
+ for m in messages:
+  line=f"[{m['sent_at']}] [{m['title']}] {m['sender']}: {m['body']}\n"
+  if used+len(line)>125000:
+   truncated=True
+   break
+  lines.append(line);used+=len(line)
+ raw="".join(lines)
+ # Auxiliary context only. Never state that missing hourly summaries imply no chat.
+ rows=db_request("report_state",params={"key":"like.hourly_report:*","select":"key,value","order":"key.desc","limit":"1000"})
  reports=[]
  for row in rows:
   stamp=row["key"].removeprefix("hourly_report:")
-  try: dt=datetime.strptime(stamp,"%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
+  try:dt=datetime.strptime(stamp,"%Y%m%dT%H%M%S%f").replace(tzinfo=timezone.utc)
   except ValueError:continue
   if start_day<=dt.astimezone(local).date()<=end_day and dt<=now:
    reports.append((dt,row["value"]))
  reports.sort(key=lambda x:x[0])
- source="\\n\\n".join(f"[Báo cáo {dt.astimezone(local).strftime('%H:%M')}]\\n{body}" for dt,body in reports)
- if not reports:
-  summary="Chưa có báo cáo giờ được lưu trữ cho kỳ báo cáo này. Không thể tổng hợp Daily Management Brief từ các báo cáo giờ."
+ hourly_text="\n\n".join(f"[Báo cáo giờ {dt.astimezone(local).strftime('%d/%m %H:%M')}]\n{body}" for dt,body in reports)
+ if len(hourly_text)>25000:hourly_text=hourly_text[-25000:];truncated=True
+ if raw:
+  instructions=DAILY_PROMPT+"\nƯU TIÊN TIN NHẮN GỐC; báo cáo giờ chỉ là nguồn đối chiếu, không tạo thêm sự kiện. Mọi action, owner, deadline, trạng thái phải có căn cứ trong tin nhắn gốc. Nếu một deadline đã qua nhưng chưa có xác nhận hoàn thành, ghi 'Chưa ghi nhận xác nhận hoàn thành', không khẳng định quá hạn. Nếu nguồn bị cắt, nêu rõ không thể bảo đảm đầy đủ."
+  summary=OpenAI().responses.create(model=MODEL,instructions=instructions,input=f"Kỳ báo cáo {period}, múi giờ Việt Nam. Tin nhắn nguồn: {len(messages)} (đưa vào: {len(lines)}). Báo cáo giờ tham khảo: {len(reports)}.\nTIN NHẮN GỐC:\n"+raw+"\nBÁO CÁO GIỜ (tham khảo):\n"+hourly_text,max_output_tokens=3500).output_text
+ elif reports:
+  summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Kỳ báo cáo {period}. Không truy xuất được tin nhắn gốc trong các nhóm đang active; chỉ có {len(reports)} báo cáo giờ. Không được trình bày đây là dữ liệu đầy đủ.\n"+hourly_text,max_output_tokens=3500).output_text
  else:
-  # Input limit is explicit; avoid silently claiming full coverage.
-  clipped=len(source)>105000
-  if clipped:source=source[:105000]
-  summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Khoảng báo cáo {period} (Asia/Ho_Chi_Minh). Số báo cáo giờ: {len(reports)}. Dữ liệu {'BỊ CẮT NGẮN' if clipped else 'trong kho báo cáo giờ'}:\n"+source,max_output_tokens=3500).output_text
-  if clipped:summary="⚠️ Dữ liệu tổng hợp vượt giới hạn, cần kiểm tra bổ sung.\n"+summary
- message=f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\nGửi {today.strftime('%d/%m/%Y')} 07:00 (GMT+7) | Dữ liệu: {start_day.strftime('%d/%m')}–{end_day.strftime('%d/%m/%Y')}\nNguồn: {len(reports)} báo cáo giờ đã lưu\n\n"+summary
+  summary="Không tìm thấy tin nhắn gốc trong các nhóm đang active hoặc báo cáo giờ đã lưu cho kỳ này. Cần kiểm tra webhook Telegram, quyền đọc nhóm, trạng thái active và dữ liệu Supabase; không thể kết luận các nhóm không có trao đổi."
+ warning="⚠️ Dữ liệu vượt giới hạn truy xuất/đầu vào; báo cáo có thể chưa đầy đủ.\n" if truncated else ""
+ message=f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\nGửi {today.strftime('%d/%m/%Y')} | Dữ liệu: {start_day.strftime('%d/%m')}–{end_day.strftime('%d/%m/%Y')}\nNguồn: {len(messages)} tin nhắn gốc; {len(reports)} báo cáo giờ tham khảo\n\n"+warning+summary
  if today.weekday()==0:
   greeting=MONDAY_WISHES[(today.toordinal()//7)%len(MONDAY_WISHES)]
   message="☀️ HELLO MONDAY — NEW WEEK, NEW ENERGY!\n"+greeting+"\n\n"+message
+ if not deliver_team:
+  send("🔎 PREVIEW / REBUILD — chỉ gửi riêng, chưa phát vào nhóm\n\n"+message)
+  return "preview_sent"
  team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
- if not team_id:
-  raise RuntimeError("TEAM_REPORT_CHAT_ID must be configured to deliver the morning brief to the team group")
- # Send team first: if it fails, private delivery is not falsely marked complete.
+ if not team_id:raise RuntimeError("TEAM_REPORT_CHAT_ID must be configured")
  send(message,chat_id=int(team_id))
  send(message)
  db_request("report_state","POST",{"key":checkpoint,"value":now.isoformat()},params={"on_conflict":"key"},prefer="resolution=merge-duplicates,return=minimal")
