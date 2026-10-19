@@ -1,7 +1,8 @@
 name: Oscar Weekly Recognition nominations
 on:
   schedule:
-    - cron: '45 4 * * 1'
+    - cron: '0 15 * * 0'
+    - cron: '30 4 * * 1'
   workflow_dispatch:
 permissions:
   contents: read
@@ -18,8 +19,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
-      - name: Deliver private nominations (Monday 11:45 GMT+7)
-        run: python -c "from weekly_award import make_nomination; print(make_nomination())"
+      - name: Deliver private nominations (Sunday 22:00 GMT+7)
+        run: python -c "from datetime import datetime; from zoneinfo import ZoneInfo; from weekly_award import make_nomination, publish_award; d=datetime.now(ZoneInfo('Asia/Ho_Chi_Minh')).weekday(); print(make_nomination() if d==6 else publish_award())"
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
