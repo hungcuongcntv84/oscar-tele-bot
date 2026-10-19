@@ -21,3 +21,12 @@
 - Group auto-discovery works when the bot receives a new group message or my_chat_member event; Telegram does not provide a complete historical group list.
 - Report content is confidential: use a private admin chat ID and restrict access to Supabase service-role key.
 - Keep PR draft until integration testing is complete.
+
+
+## Chi Mai Smart Reminder (14:00 Vietnam time)
+
+Create a second cron-job.org schedule at 14:00 Asia/Ho_Chi_Minh daily. Send POST to https://oscar-tele-bot.onrender.com/cron/chi-mai with the same X-Cron-Secret header used by the Morning Brief. Do not change the 08:00 job.
+
+Weekdays receive an evidence-based reminder; Saturday receives a shorter weekend note; Sunday is skipped. The reminder reads archived Telegram messages from yesterday through 14:00 today. Duplicate daily runs are suppressed by a Supabase checkpoint.
+
+To display Chi Mai (Remind) as a separate Telegram sender, create that Telegram bot with BotFather, add it to the destination group and configure its token as CHI_MAI_TELEGRAM_TOKEN in Render. Otherwise, the existing Oscar bot sends Chi Mai's message content. Do not publish credentials. Verify the new Render deployment and cron delivery.
