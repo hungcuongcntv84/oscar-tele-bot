@@ -146,19 +146,18 @@ def generate_daily_report(target_date=None, force=False, deliver_team=True):
  truncated=False
  # Include all groups with messages in the reporting window, even if later deactivated.
  # Group active status is not a valid historical filter.
- if True:
-  # Bounded pagination, ordered chronologically and filtered within the period.
-  for offset in range(0,5000,1000):
-   batch=db_request("messages",params={
-    "sent_at":"gte."+start.isoformat(),
-    "and":"(sent_at.lt."+end.isoformat()+")",
-    "select":"chat_id,message_id,title,sender,sent_at,body",
-    "order":"sent_at.asc,message_id.asc",
-    "limit":"1000","offset":str(offset)})
-   messages.extend(batch)
-   if len(batch)<1000:break
-  else:truncated=True
-  if len(messages)>=5000:truncated=True
+ # Bounded pagination, ordered chronologically and filtered within the period.
+ for offset in range(0,5000,1000):
+  batch=db_request("messages",params={
+   "sent_at":"gte."+start.isoformat(),
+   "and":"(sent_at.lt."+end.isoformat()+")",
+   "select":"chat_id,message_id,title,sender,sent_at,body",
+   "order":"sent_at.asc,message_id.asc",
+   "limit":"1000","offset":str(offset)})
+  messages.extend(batch)
+  if len(batch)<1000:break
+ else:truncated=True
+ if len(messages)>=5000:truncated=True
  lines=[];used=0
  for m in messages:
   line=f"[{m['sent_at']}] [{m['title']}] {m['sender']}: {m['body']}\n"
