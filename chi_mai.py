@@ -1,6 +1,5 @@
 """Chi Mai — evidence-based Telegram afternoon reminder."""
 import os
-import requests
 from datetime import datetime, timedelta, timezone, time
 from zoneinfo import ZoneInfo
 from openai import OpenAI
@@ -18,7 +17,7 @@ MỤC TIÊU QUAN TRỌNG NHẤT: LIỆT KÊ CÔNG VIỆC THEO TỪNG NGƯỜI, k
 - Nếu không có Owner rõ, liệt kê công việc ở '📌 CHƯA XÁC ĐỊNH NGƯỜI PHỤ TRÁCH' kèm người cần xác nhận và bằng chứng, không phân bổ tùy tiện.
 - Chỉ dùng dữ liệu nguồn, loại tin nhắn test, lời chào và các bản thông báo bot khỏi bằng chứng. Không biến câu hỏi đơn thuần thành việc đã được giao.
 MẪU ĐẦU RA:
-🔔 CHI MAI (REMIND) — 14:00 | dd/mm/yyyy
+🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND) — 14:00 | dd/mm/yyyy
 Một câu mở ngắn, đáng yêu.
 👥 CÔNG VIỆC THEO TỪNG NGƯỜI
 👤 Tên người A
@@ -76,13 +75,13 @@ def build_reminder(day, rows, overflow):
         total_chars += len(line)
     if not lines:
         if day.weekday() == 5:
-            msg = ("🔔 CHI MAI NHẮC NHẸ — THỨ BẢY 14:00\n"
+            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI NHẮC NHẸ — THỨ BẢY 14:00\n"
                    "Chi Mai ghé nhắc nhẹ: cả nhà kiểm tra lại những cam kết chưa phản hồi, "
                    "deadline đầu tuần và việc cần bàn giao nhé. "
                    "Chưa ghi nhận đầu việc có đủ bằng chứng để gắn cho từng người từ dữ liệu đã thu thập. "
                    "Chúc cả nhà cuối tuần thật chill! 🌿")
         else:
-            msg = ("🔔 CHI MAI NHẮC NHẸ — 14:00\n"
+            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI NHẮC NHẸ — 14:00\n"
                    "Chi Mai xin chen ngang một chút! ☕\n"
                    "Chưa ghi nhận đầu việc cụ thể cần nhắc từ nguồn đã thu thập. "
                    "Mình rà lại deadline, phản hồi còn chờ, việc ưu tiên và blocker trước khi vào guồng buổi chiều nhé. "
@@ -120,24 +119,8 @@ def generate_chi_mai(now=None):
     team = os.getenv("TEAM_REPORT_CHAT_ID", "").strip()
     if not team:
         raise RuntimeError("TEAM_REPORT_CHAT_ID missing")
-    # Optional distinct Telegram identity. Bot must be a member of the team group.
-    chi_mai_token = os.getenv("CHI_MAI_TELEGRAM_TOKEN", "").strip()
-    if chi_mai_token:
-        payload = {"chat_id": int(team), "text": content}
-        remaining = payload["text"]
-        while remaining:
-            part = remaining[:3900]
-            if len(remaining) > 3900:
-                pos = part.rfind("\\n")
-                if pos > 500:
-                    part = part[:pos]
-            response = requests.post(
-                f"https://api.telegram.org/bot{chi_mai_token}/sendMessage",
-                json={"chat_id": int(team), "text": part}, timeout=30)
-            response.raise_for_status()
-            remaining = remaining[len(part):].lstrip("\\n")
-    else:
-        send(content, chat_id=int(team))
+    # Oscar's Assistant is the umbrella bot; Chi Mai is its reminder persona.
+    send(content, chat_id=int(team))
     db_request("report_state", "POST",
                {"key": checkpoint, "value": instant.isoformat()},
                params={"on_conflict": "key"},
