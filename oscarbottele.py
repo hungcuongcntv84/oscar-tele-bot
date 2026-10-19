@@ -37,12 +37,18 @@ def webhook():
   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
   sender=msg.get("from",{})
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award_refresh":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
+   telegram("sendMessage",{"chat_id":chat["id"],"text":"Oscar đang phân tích lại toàn bộ đề cử (loại anh Cường) và sẽ gửi riêng khi hoàn tất."})
+   threading.Thread(target=refresh_award,daemon=True).start()
+  return "ok",200
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
    parts=body.strip().split()
    if len(parts)!=3:
-    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /award YYYY-MM-DD 1 (hoặc 2, 3, skip). Ngày là thứ Hai ghi trong bản đề cử."})
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /award YYYY-MM-DD [số thứ tự bất kỳ hoặc skip]. Ngày là thứ Hai ghi trong bản đề cử."})
    elif not REPORT_LOCK.acquire(blocking=False):
     telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang xử lý tác vụ khác, vui lòng thử lại."})
    else:
@@ -84,6 +90,14 @@ def webhook():
    telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang phân tích báo cáo..."})
    threading.Thread(target=manual_report,args=(duration,),daemon=True).start()
  return "ok",200
+def refresh_award():
+ try:
+  make_nomination(force=True)
+ except Exception:
+  logging.exception("Award refresh failed")
+  try:telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Tạo lại đề cử thất bại. Kiểm tra Render Logs."})
+  except Exception:logging.exception("Refresh failure notification failed")
+
 def rebuild_daily(target_date,deliver_team):
  try:
   generate_daily_report(target_date=target_date,force=True,deliver_team=deliver_team)
