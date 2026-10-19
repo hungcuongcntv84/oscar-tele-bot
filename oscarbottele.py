@@ -4,6 +4,7 @@ from datetime import datetime, timezone, timedelta
 from flask import Flask, request, abort
 from storage import db_request
 from reporting import generate_report, generate_daily_report, send
+from chi_mai import generate_chi_mai
 logging.basicConfig(level=logging.INFO)
 app_web=Flask(__name__)
 TOKEN=os.environ["TELEGRAM_TOKEN"]
@@ -97,6 +98,21 @@ def cron_hourly():
   return {"status":"sent"},200
  except Exception:
   logging.exception("Scheduled cron report failed")
+  return {"status":"error"},500
+ finally:
+  REPORT_LOCK.release()
+
+@app_web.post("/cron/chi-mai")
+def cron_chi_mai():
+ secret=os.getenv("CRON_SECRET","")
+ supplied=request.headers.get("X-Cron-Secret","")
+ if not secret or not secrets.compare_digest(supplied,secret):abort(403)
+ if not REPORT_LOCK.acquire(blocking=False):return {"status":"busy"},409
+ try:
+  status=generate_chi_mai()
+  return {"status":status},200
+ except Exception:
+  logging.exception("Chi Mai reminder failed")
   return {"status":"error"},500
  finally:
   REPORT_LOCK.release()
