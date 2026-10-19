@@ -16,9 +16,11 @@ MỤC TIÊU QUAN TRỌNG NHẤT: LIỆT KÊ CÔNG VIỆC THEO TỪNG NGƯỜI, k
 - Phân loại 'ưu tiên' chỉ khi có dấu hiệu có căn cứ như gấp, phải gửi hôm nay, blocker, cuộc hẹn hoặc mốc thời gian gần. 'Chưa ưu tiên' chỉ khi hội thoại thực sự nói để sau, hoãn, chưa gấp. Không gán mức ưu tiên chỉ vì việc được nhắc nhiều.
 - Nếu không có Owner rõ, liệt kê công việc ở '📌 CHƯA XÁC ĐỊNH NGƯỜI PHỤ TRÁCH' kèm người cần xác nhận và bằng chứng, không phân bổ tùy tiện.
 - Chỉ dùng dữ liệu nguồn, loại tin nhắn test, lời chào và các bản thông báo bot khỏi bằng chứng. Không biến câu hỏi đơn thuần thành việc đã được giao.
-MẪU ĐẦU RA:
-🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND) — 14:00 | dd/mm/yyyy
-Một câu mở ngắn, đáng yêu.
+MẪU ĐẦU RA BẮT BUỘC (đúng thứ tự):
+🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)
+Dạ, Chi Mai từ Tổ Thư ký Oscar's Assistant xin phép nhắc nhẹ cả nhà rà soát công việc chiều nay ạ! ☕
+📝 NHẮC NHẸ CẢ NHÀ
+Viết 2–3 câu ngắn, súc tích và thân thiện: rà việc ưu tiên hoàn thành hôm nay, phản hồi còn chờ; đối chiếu deadline/cam kết/nguy cơ chậm; xem việc chưa ưu tiên và chủ động báo blocker hoặc cần phối hợp. Đây chỉ là lời nhắc chung, không gán đầu việc cụ thể hay lặp các item bên dưới.
 👥 CÔNG VIỆC THEO TỪNG NGƯỜI
 👤 Tên người A
 1. [Hạng mục] — Việc cần làm | Ưu tiên (nếu rõ) | Deadline (nếu rõ) | Tình trạng | Nguồn
@@ -65,7 +67,7 @@ def build_reminder(day, rows, overflow):
     total_chars = 0
     for row in rows:
         body = row.get("body", "").strip()
-        if not body or body.startswith(("🔔 CHI MAI", "🌅 OSCAR", "📊 OSCAR", "☀️ HELLO MONDAY")):
+        if not body or body.startswith(("🔔 CHI MAI", "🔔 OSCAR'S ASSISTANT", "🌅 OSCAR", "📊 OSCAR", "☀️ HELLO MONDAY")):
             continue
         line = f"[{row['sent_at']}] [{row['title']}] {row['sender']}: {body}\n"
         if total_chars + len(line) > 100000:
@@ -75,14 +77,14 @@ def build_reminder(day, rows, overflow):
         total_chars += len(line)
     if not lines:
         if day.weekday() == 5:
-            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI NHẮC NHẸ — THỨ BẢY 14:00\n"
-                   "Chi Mai ghé nhắc nhẹ: cả nhà kiểm tra lại những cam kết chưa phản hồi, "
+            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)\n"
+                   "Dạ, Chi Mai xin nhắc nhẹ cả nhà trước khi nghỉ cuối tuần ạ! 🌿\n📝 NHẮC NHẸ CẢ NHÀ\nMình kiểm tra lại những cam kết chưa phản hồi, "
                    "deadline đầu tuần và việc cần bàn giao nhé. "
                    "Chưa ghi nhận đầu việc có đủ bằng chứng để gắn cho từng người từ dữ liệu đã thu thập. "
                    "Chúc cả nhà cuối tuần thật chill! 🌿")
         else:
-            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI NHẮC NHẸ — 14:00\n"
-                   "Chi Mai xin chen ngang một chút! ☕\n"
+            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)\n"
+                   "Dạ, Chi Mai từ Tổ Thư ký Oscar's Assistant xin phép nhắc nhẹ cả nhà rà soát công việc chiều nay ạ! ☕\n📝 NHẮC NHẸ CẢ NHÀ\n"
                    "Chưa ghi nhận đầu việc cụ thể cần nhắc từ nguồn đã thu thập. "
                    "Mình rà lại deadline, phản hồi còn chờ, việc ưu tiên và blocker trước khi vào guồng buổi chiều nhé. "
                    "Chi Mai chỉ nhắc nhẹ thôi ạ! ✨")
