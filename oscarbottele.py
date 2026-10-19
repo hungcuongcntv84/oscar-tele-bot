@@ -5,6 +5,7 @@ from flask import Flask, request, abort
 from storage import db_request
 from reporting import generate_report, generate_daily_report, send
 from chi_mai import generate_chi_mai
+from weekly_award import make_nomination, approve_award
 logging.basicConfig(level=logging.INFO)
 app_web=Flask(__name__)
 TOKEN=os.environ["TELEGRAM_TOKEN"]
@@ -36,6 +37,24 @@ def webhook():
   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
   sender=msg.get("from",{})
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private":
+   parts=body.strip().split()
+   if len(parts)!=3:
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /award YYYY-MM-DD 1 (hoặc 2, 3, skip). Ngày là thứ Hai ghi trong bản đề cử."})
+   elif not REPORT_LOCK.acquire(blocking=False):
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang xử lý tác vụ khác, vui lòng thử lại."})
+   else:
+    try:
+     result=approve_award(parts[1],parts[2])
+     telegram("sendMessage",{"chat_id":chat["id"],"text":result})
+    except Exception:
+     logging.exception("Award approval failed")
+     telegram("sendMessage",{"chat_id":chat["id"],"text":"Không thể xử lý công bố. Kiểm tra Render Logs; trước khi thử lại hãy kiểm tra xem nhóm đã nhận thông báo chưa."})
+    finally:
+     REPORT_LOCK.release()
+  return "ok",200
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/rebuild_daily":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private":
@@ -98,6 +117,21 @@ def cron_hourly():
   return {"status":"sent"},200
  except Exception:
   logging.exception("Scheduled cron report failed")
+  return {"status":"error"},500
+ finally:
+  REPORT_LOCK.release()
+
+@app_web.post("/cron/weekly-award")
+def cron_weekly_award():
+ secret=os.getenv("CRON_SECRET","")
+ supplied=request.headers.get("X-Cron-Secret","")
+ if not secret or not secrets.compare_digest(supplied,secret):abort(403)
+ if not REPORT_LOCK.acquire(blocking=False):return {"status":"busy"},409
+ try:
+  status=make_nomination()
+  return {"status":status},200
+ except Exception:
+  logging.exception("Weekly nomination failed")
   return {"status":"error"},500
  finally:
   REPORT_LOCK.release()
