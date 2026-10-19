@@ -1,5 +1,6 @@
 """Chi Mai — evidence-based Telegram afternoon reminder."""
 import os
+import requests
 from datetime import datetime, timedelta, timezone, time
 from zoneinfo import ZoneInfo
 from openai import OpenAI
@@ -110,8 +111,24 @@ def generate_chi_mai(now=None):
     team = os.getenv("TEAM_REPORT_CHAT_ID", "").strip()
     if not team:
         raise RuntimeError("TEAM_REPORT_CHAT_ID missing")
-    # Send only once under normal sequential cron usage; checkpoint after successful team delivery.
-    send(content, chat_id=int(team))
+    # Optional distinct Telegram identity. Bot must be a member of the team group.
+    chi_mai_token = os.getenv("CHI_MAI_TELEGRAM_TOKEN", "").strip()
+    if chi_mai_token:
+        payload = {"chat_id": int(team), "text": content}
+        remaining = payload["text"]
+        while remaining:
+            part = remaining[:3900]
+            if len(remaining) > 3900:
+                pos = part.rfind("\\n")
+                if pos > 500:
+                    part = part[:pos]
+            response = requests.post(
+                f"https://api.telegram.org/bot{chi_mai_token}/sendMessage",
+                json={"chat_id": int(team), "text": part}, timeout=30)
+            response.raise_for_status()
+            remaining = remaining[len(part):].lstrip("\\n")
+    else:
+        send(content, chat_id=int(team))
     db_request("report_state", "POST",
                {"key": checkpoint, "value": instant.isoformat()},
                params={"on_conflict": "key"},
