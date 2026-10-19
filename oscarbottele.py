@@ -35,6 +35,24 @@ def webhook():
   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
   sender=msg.get("from",{})
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/rebuild_daily":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private":
+   import re
+   from datetime import date
+   parts=body.split()
+   if len(parts) not in (2,3) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}",parts[1]) or (len(parts)==3 and parts[2]!="send"):
+    telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /rebuild_daily YYYY-MM-DD [send]. Không có send: preview riêng. Có send: phát lại vào nhóm."})
+   else:
+    try:
+     target=date.fromisoformat(parts[1])
+     if target>datetime.now(timezone(timedelta(hours=7))).date() or target.weekday()==6:
+      raise ValueError("Ngày tương lai hoặc Chủ Nhật không hỗ trợ dựng lại báo cáo quản trị")
+     threading.Thread(target=rebuild_daily,args=(target,len(parts)==3,),daemon=True).start()
+     telegram("sendMessage",{"chat_id":chat["id"],"text":"Đã nhận yêu cầu dựng lại; bản preview sẽ gửi riêng nếu không có 'send'."})
+    except ValueError as exc:
+     telegram("sendMessage",{"chat_id":chat["id"],"text":str(exc)})
+  return "ok",200
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/baocao":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private":
@@ -46,6 +64,14 @@ def webhook():
    telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang phân tích báo cáo..."})
    threading.Thread(target=manual_report,args=(duration,),daemon=True).start()
  return "ok",200
+def rebuild_daily(target_date,deliver_team):
+ try:
+  generate_daily_report(target_date=target_date,force=True,deliver_team=deliver_team)
+ except Exception:
+  logging.exception("Daily rebuild failed")
+  try: telegram("sendMessage",{"chat_id":int(os.environ["CHAT_ID"]),"text":"⚠️ Dựng lại báo cáo thất bại. Kiểm tra Render Logs."})
+  except Exception:logging.exception("Failed to notify admin")
+
 def manual_report(duration):
  try: generate_report(duration,scheduled=False)
  except Exception:
