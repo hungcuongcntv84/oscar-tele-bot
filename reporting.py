@@ -142,15 +142,14 @@ def generate_daily_report(target_date=None, force=False, deliver_team=True):
  # for messages, because cron may be skipped or /baocao may run without archiving.
  start=datetime.combine(start_day,datetime.min.time(),tzinfo=local).astimezone(timezone.utc)
  end=datetime.combine(today,datetime.min.time(),tzinfo=local).astimezone(timezone.utc)
- active=db_request("groups",params={"active":"eq.true","select":"chat_id"})
- ids=[str(g["chat_id"]) for g in active]
  messages=[]
  truncated=False
- if ids:
+ # Include all groups with messages in the reporting window, even if later deactivated.
+ # Group active status is not a valid historical filter.
+ if True:
   # Bounded pagination, ordered chronologically and filtered within the period.
   for offset in range(0,5000,1000):
    batch=db_request("messages",params={
-    "chat_id":"in.("+",".join(ids)+")",
     "sent_at":"gte."+start.isoformat(),
     "and":"(sent_at.lt."+end.isoformat()+")",
     "select":"chat_id,message_id,title,sender,sent_at,body",
@@ -184,9 +183,9 @@ def generate_daily_report(target_date=None, force=False, deliver_team=True):
   instructions=DAILY_PROMPT+"\nƯU TIÊN TIN NHẮN GỐC; báo cáo giờ chỉ là nguồn đối chiếu, không tạo thêm sự kiện. Mọi action, owner, deadline, trạng thái phải có căn cứ trong tin nhắn gốc. Nếu một deadline đã qua nhưng chưa có xác nhận hoàn thành, ghi 'Chưa ghi nhận xác nhận hoàn thành', không khẳng định quá hạn. Nếu nguồn bị cắt, nêu rõ không thể bảo đảm đầy đủ."
   summary=OpenAI().responses.create(model=MODEL,instructions=instructions,input=f"Kỳ báo cáo {period}, múi giờ Việt Nam. Tin nhắn nguồn: {len(messages)} (đưa vào: {len(lines)}). Báo cáo giờ tham khảo: {len(reports)}.\nTIN NHẮN GỐC:\n"+raw+"\nBÁO CÁO GIỜ (tham khảo):\n"+hourly_text,max_output_tokens=3500).output_text
  elif reports:
-  summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Kỳ báo cáo {period}. Không truy xuất được tin nhắn gốc trong các nhóm đang active; chỉ có {len(reports)} báo cáo giờ. Không được trình bày đây là dữ liệu đầy đủ.\n"+hourly_text,max_output_tokens=3500).output_text
+  summary=OpenAI().responses.create(model=MODEL,instructions=DAILY_PROMPT,input=f"Kỳ báo cáo {period}. Không truy xuất được tin nhắn gốc; chỉ có {len(reports)} báo cáo giờ. Không được trình bày đây là dữ liệu đầy đủ.\n"+hourly_text,max_output_tokens=3500).output_text
  else:
-  summary="Không tìm thấy tin nhắn gốc trong các nhóm đang active hoặc báo cáo giờ đã lưu cho kỳ này. Cần kiểm tra webhook Telegram, quyền đọc nhóm, trạng thái active và dữ liệu Supabase; không thể kết luận các nhóm không có trao đổi."
+  summary="Không tìm thấy tin nhắn gốc hoặc báo cáo giờ đã lưu cho kỳ này. Cần kiểm tra webhook Telegram, quyền đọc nhóm, trạng thái active và dữ liệu Supabase; không thể kết luận các nhóm không có trao đổi."
  warning="⚠️ Dữ liệu vượt giới hạn truy xuất/đầu vào; báo cáo có thể chưa đầy đủ.\n" if truncated else ""
  message=f"🌅 OSCAR — MORNING MANAGEMENT BRIEF\nGửi {today.strftime('%d/%m/%Y')} | Dữ liệu: {start_day.strftime('%d/%m')}–{end_day.strftime('%d/%m/%Y')}\nNguồn: {len(messages)} tin nhắn gốc; {len(reports)} báo cáo giờ tham khảo\n\n"+warning+summary
  if today.weekday()==0:
