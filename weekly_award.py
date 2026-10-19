@@ -45,7 +45,7 @@ def put_state(key,value):
 def make_nomination(now=None):
     instant=now or datetime.now(timezone.utc)
     local=instant.astimezone(LOCAL)
-    if local.weekday()!=0 or (local.hour,local.minute)<(11,50):
+    if local.weekday()!=0 or (local.hour,local.minute)<(11,45):
         return "skipped_schedule"
     day=local.date().isoformat()
     key="award:nomination:"+day
