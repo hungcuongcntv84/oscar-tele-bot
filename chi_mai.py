@@ -29,7 +29,8 @@ Viết 2–3 câu ngắn, súc tích và thân thiện: rà việc ưu tiên ho�
 ...
 📌 CHƯA XÁC ĐỊNH NGƯỜI PHỤ TRÁCH (chỉ khi có)
 🤝 CẦN PHỐI HỢP / BLOCKER (nếu có bằng chứng; tránh trùng)
-Một câu chốt nhẹ nhàng.
+Một câu chốt nhẹ nhàng. NGAY SAU ĐÓ luôn thêm nguyên văn dòng sau, kể cả khi không có công việc cụ thể: 
+📎 Lưu ý: Thông tin Chi Mai tổng hợp có thể chưa đầy đủ. Anh chị chủ động rà soát, bổ sung những công việc còn thiếu và cập nhật tình trạng mới nhất nhé!
 Đừng giới hạn tùy ý ở 6 việc: ưu tiên độ bao phủ từng người, giảm trùng lặp và thông tin không cần thiết. Nếu quá nhiều việc, báo rõ là danh sách chọn lọc và nêu quy tắc chọn.
 Nếu không tìm thấy đầu việc xác thực, nói rõ 'Chưa ghi nhận đầu việc có đủ bằng chứng để gắn cho từng người từ dữ liệu đã thu thập' rồi nhắc chung rà lại deadline và phản hồi.
 Thứ Bảy: ngắn gọn, chỉ công việc thực sự còn cần bàn giao hoặc theo dõi, nhóm THEO TỪNG NGƯỜI vẫn bắt buộc nếu có bằng chứng; không thúc ép làm chiều thứ Bảy. Chủ Nhật không gửi.
@@ -101,7 +102,10 @@ def build_reminder(day, rows, overflow):
         )
         msg = result.output_text.strip()
     if overflow:
-        msg = "⚠️ Dữ liệu đầu vào giới hạn; có thể thiếu thông tin.\n" + msg
+        msg = "⚠️ Dữ liệu đầu vào giới hạn; có thể thiếu thông tin.\\n" + msg
+    disclaimer = "📎 Lưu ý: Thông tin Chi Mai tổng hợp có thể chưa đầy đủ. Anh chị chủ động rà soát, bổ sung những công việc còn thiếu và cập nhật tình trạng mới nhất nhé!"
+    if disclaimer not in msg:
+        msg = msg.rstrip() + "\\n\\n" + disclaimer
     return msg
 
 def generate_chi_mai(now=None):
