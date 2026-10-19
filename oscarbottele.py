@@ -39,7 +39,7 @@ def webhook():
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award":
   sender=msg.get("from",{})
-  if sender.get("id") in ADMINS and chat.get("type")=="private":
+  if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
    parts=body.strip().split()
    if len(parts)!=3:
     telegram("sendMessage",{"chat_id":chat["id"],"text":"Cú pháp: /award YYYY-MM-DD 1 (hoặc 2, 3, skip). Ngày là thứ Hai ghi trong bản đề cử."})
