@@ -113,7 +113,12 @@ def approve_award(day,choice):
     package["selected"]=int(choice)
     package["status"]="approved"
     put_state(key,json.dumps(package,ensure_ascii=False))
-    return "Đã ghi nhận lựa chọn "+package["nominees"][int(choice)-1]["name"]+"; chờ công bố thứ Hai 11:30."
+    # One-off recovery: 19 Oct's 11:30 cutoff has already passed. Publish only
+    # after the owner explicitly selects, never autonomously.
+    if day=="2026-10-19" and datetime.now(LOCAL).date().isoformat()==day and datetime.now(LOCAL).time()>=time(11,30):
+        result=publish_award()
+        return "Đã duyệt "+package["nominees"][int(choice)-1]["name"]+"; kết quả công bố: "+result
+    return "Đã duyệt "+package["nominees"][int(choice)-1]["name"]+"; Giai Thương sẽ công bố thứ Hai 11:30."
 
 def publish_award(now=None):
     instant=now or datetime.now(timezone.utc)
