@@ -108,7 +108,7 @@ def cron_test_delivery():
  if not secret or not secrets.compare_digest(supplied,secret):abort(403)
  team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
  if not team_id:return {"status":"error","reason":"TEAM_REPORT_CHAT_ID missing"},500
- message="🧪 OSCAR — TEST DELIVERY\\nĐây là tin nhắn kiểm tra kênh nhận Morning Management Brief. Không phải báo cáo thật.\\nLịch báo cáo 07:00 không thay đổi."
+ message="🧪 OSCAR — TEST DELIVERY\\nĐây là tin nhắn kiểm tra kênh nhận Morning Management Brief. Không phải báo cáo thật.\\nLịch báo cáo hiện tại: 08:00 (GMT+7)."
  results={}
  for label,recipient in (("team",team_id),("private",os.environ["CHAT_ID"])):
   try:
@@ -128,7 +128,17 @@ def cron_daily():
  try:
   from zoneinfo import ZoneInfo
   local=datetime.now(ZoneInfo("Asia/Ho_Chi_Minh"))
-  if local.hour<7:return {"status":"skipped","reason":"Before 07:00 Vietnam time"},200
+  if local.hour<8:return {"status":"skipped","reason":"Before 08:00 Vietnam time"},200
+  # One-time corrective reissue for 19 Oct: the 07:00 brief lacked archived hourly data.
+  # The normal daily checkpoint already exists, so bypass it once at/after 08:00.
+  if local.date().isoformat()=="2026-10-19":
+   marker="daily_rerun:2026-10-19"
+   prior=db_request("report_state",params={"key":"eq."+marker,"select":"value"})
+   if prior:return {"status":"skipped","reason":"Corrected October 19 brief already sent"},200
+   result=generate_daily_report(target_date=local.date(),force=True,deliver_team=True)
+   if result=="sent":
+    db_request("report_state","POST",{"key":marker,"value":datetime.now(timezone.utc).isoformat()},params={"on_conflict":"key"},prefer="resolution=merge-duplicates,return=minimal")
+   return {"status":result,"corrected":True},200
   result=generate_daily_report()
   return {"status":result},200
  except Exception:
