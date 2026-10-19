@@ -1,0 +1,29 @@
+name: Oscar Weekly Recognition nominations
+on:
+  schedule:
+    - cron: '50 4 * * 1'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: oscar-weekly-recognition
+  cancel-in-progress: false
+jobs:
+  nominate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - name: Deliver private nominations (Monday 11:50 GMT+7)
+        run: python -c "from weekly_award import make_nomination; print(make_nomination())"
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_MODEL: ${{ vars.OPENAI_MODEL || 'gpt-4.1-mini' }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          CHAT_ID: ${{ secrets.CHAT_ID }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
