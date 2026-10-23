@@ -104,18 +104,18 @@ def build_reminder(day, rows, overflow):
         lines.append(line)
         total_chars += len(line)
     if not lines:
-        if day.weekday() == 5:
-            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)\n"
-                   "Dạ, Chi Mai xin nhắc nhẹ cả nhà trước khi nghỉ cuối tuần ạ! 🌿\n📝 NHẮC NHẸ CẢ NHÀ\nMình kiểm tra lại những cam kết chưa phản hồi, "
-                   "deadline đầu tuần và việc cần bàn giao nhé. "
-                   "Chưa ghi nhận đầu việc có đủ bằng chứng để gắn cho từng người từ dữ liệu đã thu thập. "
-                   "Chúc cả nhà cuối tuần thật chill! 🌿")
+        title="🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)\n"
+        if day.weekday()==5:
+            msg=(title+"☕ Chi Mai nhắc nhẹ trước cuối tuần nhé!\n"
+                 "📝 NHẮC NHẸ\n"
+                 "• **Bàn giao:** rà cam kết chưa phản hồi và việc cần chuẩn bị đầu tuần.\n"
+                 "• Chưa ghi nhận công việc có đủ bằng chứng để gắn cho từng người. 🌿")
         else:
-            msg = ("🔔 OSCAR'S ASSISTANT | CHI MAI (REMIND)\n"
-                   "Dạ, Chi Mai từ Tổ Thư ký Oscar's Assistant xin phép nhắc nhẹ cả nhà rà soát công việc chiều nay ạ! ☕\n📝 NHẮC NHẸ CẢ NHÀ\n"
-                   "Chưa ghi nhận đầu việc cụ thể cần nhắc từ nguồn đã thu thập. "
-                   "Mình rà lại deadline, phản hồi còn chờ, việc ưu tiên và blocker trước khi vào guồng buổi chiều nhé. "
-                   "Chi Mai chỉ nhắc nhẹ thôi ạ! ✨")
+            msg=(title+"☕ Chi Mai nhắc nhẹ, cả nhà rà các đầu việc chiều nay nhé!\n"
+                 "📝 NHẮC NHẸ\n"
+                 "• **Ưu tiên:** chốt việc hôm nay và phản hồi còn chờ.\n"
+                 "• **Deadline:** rà cam kết, chủ động báo vướng mắc.\n"
+                 "• Chưa ghi nhận công việc có đủ bằng chứng để gắn cho từng người.")
     else:
         result = OpenAI().responses.create(
             model=MODEL,
