@@ -42,17 +42,17 @@ def put_state(key,value):
     db_request("report_state","POST",{"key":key,"value":value},
                params={"on_conflict":"key"},prefer="resolution=merge-duplicates,return=minimal")
 
-def make_nomination(now=None,force=False):
+def make_nomination(now=None,force=False,scheduled=False):
     instant=now or datetime.now(timezone.utc)
     local=instant.astimezone(LOCAL)
-    if not force and (local.weekday()!=6 or (local.hour,local.minute)<(22,0)):
+    if not force and not scheduled and (local.weekday()!=6 or (local.hour,local.minute)<(22,0)):
         return "skipped_schedule"
     monday=local.date()+timedelta(days=1) if local.weekday()==6 else local.date()
     day=monday.isoformat()
     key="award:nomination:"+day
     if state(key) and not force:return "skipped_duplicate"
     start=datetime.combine(monday-timedelta(days=7),time.min,LOCAL).astimezone(timezone.utc)
-    end=instant if force else datetime.combine(local.date(),time(22,0),LOCAL).astimezone(timezone.utc)
+    end=instant if force else datetime.combine(monday-timedelta(days=1),time(22,0),LOCAL).astimezone(timezone.utc)
     rows,truncated=collect(start,end)
     lines=[];length=0
     for row in rows:
