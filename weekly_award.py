@@ -120,13 +120,31 @@ def approve_award(day,choice):
         return "Đã duyệt "+package["nominees"][int(choice)-1]["name"]+"; kết quả công bố: "+result
     return "Đã duyệt "+package["nominees"][int(choice)-1]["name"]+"; Giai Thương sẽ công bố thứ Hai 11:30."
 
-def publish_award(now=None):
+def publish_award(now=None,force=False):
     instant=now or datetime.now(timezone.utc)
     local=instant.astimezone(LOCAL)
-    if local.weekday()!=0 or (local.hour,local.minute)<(11,30):return "skipped_schedule"
+    if not force and (local.weekday()!=0 or (local.hour,local.minute)<(11,30)):
+        return "skipped_schedule"
     day=local.date().isoformat()
+    raw=None
+    if force:
+        # Manual recovery selects only the latest explicitly approved,
+        # unpublished Monday nomination; never publish pending candidates.
+        for days_back in range(0,15):
+            candidate=(local.date()-timedelta(days=days_back))
+            if candidate.weekday()!=0:continue
+            candidate_day=candidate.isoformat()
+            if state("award:published:"+candidate_day):continue
+            candidate_raw=state("award:nomination:"+candidate_day)
+            if not candidate_raw:continue
+            candidate_package=json.loads(candidate_raw)
+            if candidate_package.get("status")=="approved" and candidate_package.get("selected"):
+                day=candidate_day
+                raw=candidate_raw
+                break
+        if raw is None:return "skipped_no_approved_unpublished_award"
     if state("award:published:"+day):return "skipped_duplicate"
-    raw=state("award:nomination:"+day)
+    if raw is None:raw=state("award:nomination:"+day)
     if not raw:return "skipped_no_nomination"
     package=json.loads(raw)
     if package.get("status")!="approved" or not package.get("selected"):return "skipped_awaiting_approval"
