@@ -73,7 +73,7 @@ def webhook():
     telegram("sendMessage",{"chat_id":chat["id"],"text":"Đang xử lý tác vụ khác, hãy thử lại."})
    else:
     try:
-     result=publish_award()
+     result=publish_award(force=True)
      telegram("sendMessage",{"chat_id":chat["id"],"text":"Giai Thương: "+result})
     except Exception:
      logging.exception("Manual award publication failed")
