@@ -37,6 +37,35 @@ def webhook():
   db_request("groups","POST",{"chat_id":chat["id"],"title":chat.get("title",""),"active":True},params={"on_conflict":"chat_id"},prefer="resolution=merge-duplicates,return=minimal")
   sender=msg.get("from",{})
   db_request("messages","POST",{"chat_id":chat["id"],"message_id":msg["message_id"],"title":chat.get("title",""),"sender":sender.get("first_name","Unknown"),"sent_at":datetime.fromtimestamp(msg["date"],timezone.utc).isoformat(),"body":body},params={"on_conflict":"chat_id,message_id"},prefer="resolution=ignore-duplicates,return=minimal")
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/morning_check":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
+   team_id=os.getenv("TEAM_REPORT_CHAT_ID","").strip()
+   private_id=os.environ["CHAT_ID"].strip()
+   today=datetime.now(timezone(timedelta(hours=7))).date().isoformat()
+   checkpoint=db_request("report_state",params={"key":"eq.daily:"+today,"select":"value"})
+   if not team_id:
+    report="⚠️ TEAM_REPORT_CHAT_ID chưa được cấu hình trên Render."
+   elif team_id==private_id:
+    report="❌ TEAM_REPORT_CHAT_ID đang TRÙNG CHAT_ID cá nhân. Báo cáo không thể vào nhóm. Cần sửa biến môi trường Render."
+   else:
+    try:
+     resp=telegram("getChat",{"chat_id":int(team_id)})
+     info=resp.get("result",{})
+     kind=info.get("type","unknown")
+     title=info.get("title") or info.get("first_name") or "(không rõ)"
+     report="Nhóm đích trong Render: "+title+"\nLoại chat: "+kind
+     if kind not in ("group","supergroup"):
+      report+="\n⚠️ Nhóm đích KHÔNG phải group/supergroup, cần cập nhật TEAM_REPORT_CHAT_ID."
+     else:
+      report+="\n✅ Bot có thể tra cứu nhóm đích."
+    except Exception:
+     logging.exception("Morning chat check failed")
+     report="❌ Không thể tra cứu nhóm đích. Kiểm tra TEAM_REPORT_CHAT_ID và quyền Bot trong nhóm."
+   report+="\nCheckpoint Morning Brief hôm nay: "+("đã có" if checkpoint else "chưa có")
+   report+="\nLưu ý: Checkpoint không chứng minh nhóm đã nhận; không tự gửi lại để tránh trùng."
+   telegram("sendMessage",{"chat_id":chat["id"],"text":"🔎 MORNING BRIEF — DELIVERY CHECK\n"+report})
+  return "ok",200
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award_publish":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
