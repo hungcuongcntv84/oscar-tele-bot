@@ -66,6 +66,41 @@ def webhook():
    report+="\nLưu ý: Checkpoint không chứng minh nhóm đã nhận; không tự gửi lại để tránh trùng."
    telegram("sendMessage",{"chat_id":chat["id"],"text":"🔎 MORNING BRIEF — DELIVERY CHECK\n"+report})
   return "ok",200
+ if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award_status":
+  sender=msg.get("from",{})
+  if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
+   from weekly_award import state, LOCAL
+   from datetime import date as date_type
+   import json
+   current=datetime.now(LOCAL).date()
+   monday=current-timedelta(days=current.weekday())
+   lines=["🔎 GIAI THƯƠNG — TRẠNG THÁI PHÊ DUYỆT"]
+   for i in range(4):
+    day=(monday-timedelta(days=7*i)).isoformat()
+    raw=state("award:nomination:"+day)
+    published=state("award:published:"+day)
+    if not raw and not published:continue
+    note=day+" | đề cử: "+("có" if raw else "không")+" | công bố: "+("đã có checkpoint" if published else "chưa ghi nhận")
+    if raw:
+     try:
+      package=json.loads(raw)
+      choice=package.get("selected")
+      nominees=package.get("nominees",[])
+      name=nominees[int(choice)-1].get("name") if choice and 1<=int(choice)<=len(nominees) else "(chưa chọn)"
+      note+="\nTrạng thái: "+str(package.get("status","(thiếu)"))+" | đã duyệt: "+str(name)
+     except Exception:
+      note+="\n⚠️ Dữ liệu đề cử không đọc được."
+    if published:
+     try:
+      record=json.loads(published)
+      note+="\nCheckpoint công bố: "+str(record.get("name",record))
+     except Exception:
+      note+="\nCheckpoint công bố: "+str(published)
+    lines.append(note)
+   if len(lines)==1:lines.append("Không tìm thấy đề cử hoặc công bố trong 4 tuần gần nhất.")
+   lines.append("Lệnh chỉ kiểm tra, KHÔNG phát thông báo vào nhóm.")
+   telegram("sendMessage",{"chat_id":chat["id"],"text":"\n\n".join(lines)})
+  return "ok",200
  if body and body.strip().split() and body.strip().split()[0].split("@")[0]=="/award_publish":
   sender=msg.get("from",{})
   if sender.get("id") in ADMINS and chat.get("type")=="private" and int(chat.get("id",0))==int(os.environ["CHAT_ID"]):
